@@ -10,12 +10,16 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.List;
 import java.util.Locale;
+import java.util.Scanner;
 
 public class DisplayMapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
@@ -61,6 +65,28 @@ public class DisplayMapsActivity extends FragmentActivity implements OnMapReadyC
         // Add a marker and move the camera
         double lat = 0;
         double lon = 0;
+        int zoom = 10;
+        String marker = "";
+        int animate = 0;
+        try {
+            String lastword = location.substring(location.lastIndexOf(" ")+1);
+            if (lastword.startsWith("Zoom:")) {
+                int newZoom = Integer.parseInt(lastword.substring(5));
+                if (newZoom >= 0 || newZoom <= mMap.getMinZoomLevel())  {
+                    zoom = newZoom;
+                }
+                location = location.substring(0, location.lastIndexOf(" "));
+            }
+            else if (lastword.startsWith("Animate:")) {
+                String animation = lastword.substring(8);
+                if (animation.equals("True")) {
+                    animate = 1;
+                }
+                location = location.substring(0, location.lastIndexOf(" "));
+            }
+        } catch (Exception e) {
+
+        }
 
         Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
         try {
@@ -69,14 +95,71 @@ public class DisplayMapsActivity extends FragmentActivity implements OnMapReadyC
                 if (list.size() > 0) {
                     lat = list.get(0).getLatitude();
                     lon = list.get(0).getLongitude();
+                    String locality = list.get(0).getLocality();
+                    String state = list.get(0).getAdminArea();
+                    String country = list.get(0).getCountryCode();
+                    String zip = list.get(0).getPostalCode();
+                    if (locality != null) {
+                        marker += locality + " ";
+                    }
+                    if (state != null) {
+                        marker += state + " ";
+                    }
+                    if (country != null) {
+                        marker += country + " ";
+                    }
+                    if (zip != null) {
+                        marker += zip;
+                    }
                 }
             }
-        } catch (IOException e) {
+            if (lat == 0 && lon == 0) {
+                String[] coords = location.split(" ");
+                if (coords.length == 2) {
+                    lat = Double.parseDouble(coords[0].replaceAll(",",""));
+                    lon = Double.parseDouble(coords[1]);
+                    List<Address> list2 = geocoder.getFromLocation(lat, lon, 1);
+                    if (list2 != null) {
+                        if (list.size() > 0) {
+                            String locality = list2.get(0).getLocality();
+                            String state = list2.get(0).getAdminArea();
+                            String country = list2.get(0).getCountryCode();
+                            String zip = list2.get(0).getPostalCode();
+                            if (locality != null) {
+                                marker += locality + " ";
+                            }
+                            if (state != null) {
+                                marker += state + " ";
+                            }
+                            if (country != null) {
+                                marker += country + " ";
+                            }
+                            if (zip != null) {
+                                marker += zip;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         LatLng loc = new LatLng(lat, lon);
-        mMap.addMarker(new MarkerOptions().position(loc).title("Marker"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(loc));
+        if (marker.equals("")) {
+            marker = "Marker";
+        }
+        mMap.addMarker(new MarkerOptions().position(loc).title(marker));
+        if (animate == 1) {
+            CameraPosition cameraPosition = new CameraPosition.Builder()
+                    .target(loc)      // Sets the center of the map to Mountain View
+                    .zoom(17)                   // Sets the zoom
+                    .bearing(90)                // Sets the orientation of the camera to east
+                    .tilt(60)                   // Sets the tilt of the camera to 30 degrees
+                    .build();                   // Creates a CameraPosition from the builder
+            mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        } else {
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, zoom));
+        }
     }
 }
